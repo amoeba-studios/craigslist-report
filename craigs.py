@@ -1,5 +1,4 @@
-import pprint
-import time
+import smtplib
 
 from craigslist import CraigslistHousing
 from datetime import datetime
@@ -47,12 +46,27 @@ def time_fmt(date_time):
 
 if __name__ == '__main__':
 
-    for query in queries:
-        print "\n%s Listings" % query['name']
-        print "------------------------------------------------------------"
-        cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
+    # for query in queries:
+    #     print "\n%s Listings" % query['name']
+    #     print "------------------------------------------------------------"
+    #     cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
+    #
+    #     results = cl.get_results(sort_by='newest', limit=20)
+    #     for result in results:
+    #         print("%s:\t(%5s)\t%s" % (time_fmt(result['datetime']), result['price'], result['name']) )
+    fromA = ''
+    to = ''
+    subj = 'Test Subject'
+    date = '12/8/2017'
+    txt = 'Testing Body'
 
-        results = cl.get_results(sort_by='newest', limit=20)
-        for result in results:
-            print("%s:\t(%5s)\t%s" % (time_fmt(result['datetime']), result['price'], result['name']) )
-
+    msg = "From: %s\nTo: %s\nSubject: %s\nDate: %s\n\n%s" % (fromA, to, subj, date, txt)
+    try:
+        server = smtplib.SMTP('smtp.mail.yahoo.com', 587)
+        server.starttls()
+        server.login('', '')
+        server.sendmail(fromA, to, msg)
+        print "sendmail succeeded"
+    except Exception as e:
+        print "sendmail failed"
+        print e
