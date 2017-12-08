@@ -1,8 +1,8 @@
-import os
-import sys
 import pprint
+import time
 
 from craigslist import CraigslistHousing
+from datetime import datetime
 
 queries = [
     {
@@ -23,20 +23,26 @@ queries = [
     },
 ]
 
+HR = 60 * 60
+DAY = HR * 24
+GREEN_THR = DAY * 2
+YELLOW_THR = DAY * 4
 
-def time_fmt(datetime):
-    suffix='am'
-    fields = datetime.split(' ')
-    date = fields[0][5:].replace('-', '/')
-    hr = int(fields[1].split(':')[0])
-    if hr >= 12:
-        suffix='pm'
-        if hr > 12:
-            hr -= 12
-    min = fields[1].split(':')[1]
 
-    str = "%s\t%2d:%s%s" % (date, hr, min, suffix)
-    return str
+def time_fmt(date_time):
+
+    post_time = datetime.strptime(date_time, '%Y-%m-%d %H:%M')
+    delta = (datetime.now() - post_time).total_seconds()
+    if delta < GREEN_THR:
+        color = 'green'
+    elif delta < YELLOW_THR:
+        color = 'yellow'
+    else:
+        color = 'red'
+
+    t_str = post_time.strftime('%m/%d %I:%M%p')
+    ret = color + ' ' + t_str
+    return ret
 
 
 if __name__ == '__main__':
@@ -49,6 +55,4 @@ if __name__ == '__main__':
         results = cl.get_results(sort_by='newest', limit=20)
         for result in results:
             print("%s:\t(%5s)\t%s" % (time_fmt(result['datetime']), result['price'], result['name']) )
-#            pprint.pprint(result)
-#            print("\n")
 
