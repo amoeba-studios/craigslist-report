@@ -37,7 +37,7 @@ def mailit(subject, body, to, email):
     server.quit()
 
 
-def time_fmt(date_time, job, do_color=True):
+def time_fmt(date_time, job, email=True):
 
     post_time = datetime.strptime(date_time, '%Y-%m-%d %H:%M')
     delta = (datetime.now() - post_time).total_seconds()
@@ -49,48 +49,87 @@ def time_fmt(date_time, job, do_color=True):
         color = RED
 
     t_str = post_time.strftime('%m/%d %I:%M%p')
-    if do_color:
+    if email:
         ret = '<font color = %s>' % color + t_str + '</font>'
     else:
         ret = t_str
 
-    return ret
+    return ret, color
 
 
-def slackit(slack, msg):
+def slackit(slack, msg, att):
     sc = SlackClient(slack['token'])
     sc.api_call("chat.postMessage", channel=slack['channel'], text=msg, username='craigbot',
-                icon_emoji=':robot_face:')
+                icon_emoji=':robot_face:', attachments=json.dumps(att))
+
 
 if __name__ == '__main__':
+    print "reading config"
     with open(CONFIG) as config_file:
         cfg = json.load(config_file)
+    print "done reading config"
+
+
+    att = [
+        {
+#            "pretext": "Cedar Point",
+            "title": "Listing 1",
+            "title_link": "https://groove.hq/path/to/ticket/1943",
+            "text": "<http://www.foo.com|amoebastudios>",
+            "color": "good"
+        },
+        {
+            "title": "Listing 2",
+            "title_link": "https://groove.hq/path/to/ticket/1943",
+            "text": "http://amoebastudios.com",
+            "color": "warning"
+        }
+    ]
+
+#    s_body = 'Cedar Point'
+#
+#    print "sending slack"
+#    slackit(cfg['slack'], s_body, att)
+#    print "done sending slack"
+#
+#   exit(0)
+
+    attachments = []
 
     body = ""
     s_body = ""
     for job in cfg['job_list']:
         for query in job['queries']:
-            body = "%s Listings<BR>" % query['name']
-            s_body = "%s Listings\n" % query['name']
+            body += "%s Listings<BR>" % query['name']
             body += "----------------------------------<BR>"
-            s_body += "----------------------------------\n"
+            attachments.append(dict(pretext="\n*_%s _Listings_*" % query['name'], text="",
+                                    mrkdwn_in=["pretext"]))
+            text = {}
+            text[GREEN] = ""
+            text[YELLOW] = ""
+            text[RED] = ""
+#            text = dict(GREEN="", YELLOW="", RED="")
 
             cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
-
-            results = cl.get_results(sort_by='newest', limit=20)
+            results = cl.get_results(sort_by='newest', limit=5)
             for result in results:
                 body += ("%s:\t(%5s)\t<a href=%s>%s</a>\n<BR>" %
                          (time_fmt(result['datetime'], job), result['price'], result['url'], result['name']))
-                s_body += ("%s:\t(%5s)\t%s\n" %
-                           (time_fmt(result['datetime'], job, False), result['price'], result['name']))
+
+                time_str, color = time_fmt(result['datetime'], job, False)
+                text[color] += ("%s: (%5s) <%s|%s>\n" %
+                                (time_str, result['price'], result['url'], result['name']))
             body += '<BR><BR>'
-            s_body += '\n\n'
+            attachments.append(dict(color="good", text=text[GREEN]))
+            attachments.append(dict(color="warning", text=text[YELLOW]))
+            attachments.append(dict(color="danger", text=text[RED]))
 
         body += "<font color = %s>Green</font> - Under %d days old<BR>" % (GREEN, job['green_thr'])
         body += "<font color = %s>Yellow</font> - Over %d days old<BR>" % (YELLOW, job['green_thr'])
         body += "<font color = %s>Red</font> - Over %d days old<BR>" % (RED, job['yellow_thr'])
 
 #        mailit(job['subject'], body, job['sendto'], cfg['email'])
-        slackit(cfg['slack'], s_body)
+        slackit(cfg['slack'], "", attachments)
 
+    print "done"
     exit(0)
