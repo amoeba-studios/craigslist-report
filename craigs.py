@@ -1,57 +1,27 @@
 import smtplib
+import json
 
 from craigslist import CraigslistHousing
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
 
-queries = [
-    {
-        'name': 'Cedar Point',
-        'site': 'dallas',
-        'category': 'apa',
-        'filters': {
-            'query': '"cedar+point"'
-        }
-    },
-    {
-        'name': 'Thorn Manor',
-        'site': 'dallas',
-        'category': 'apa',
-        'filters': {
-            'query': '"thorn+manor"'
-        }
-    },
-    {
-        'name': 'Arbor Terrace',
-        'site': 'dallas',
-        'category': 'apa',
-        'filters': {
-            'query': '"arbor+terrace"'
-        }
-    },
-]
-
 HR = 60 * 60
 DAY = HR * 24
-GREEN_THR = 2
-YELLOW_THR = 4
 GREEN = 'green'
 YELLOW = 'cantaloupe'
 RED = 'cranberry'
 
-FROM = ''
-TO = ['']
-PASSWORD = ''
+CONFIG = "/tmp/craigs.ini"
 
 
-def time_fmt(date_time):
+def time_fmt(date_time, job):
 
     post_time = datetime.strptime(date_time, '%Y-%m-%d %H:%M')
     delta = (datetime.now() - post_time).total_seconds()
-    if delta < GREEN_THR * DAY:
+    if delta < int(job['green_thr']) * DAY:
         color = GREEN
-    elif delta < YELLOW_THR * DAY:
+    elif delta < int(job['yellow_thr']) * DAY:
         color = YELLOW
     else:
         color = RED
@@ -61,44 +31,48 @@ def time_fmt(date_time):
     return ret
 
 
-def mailit(subject, body, to, _from):
+def mailit(subject, body, to, email):
     try:
-        server = smtplib.SMTP('smtp.mail.yahoo.com', 587)
+        print email
+        server = smtplib.SMTP(email['server'], int(email['port']))
         server.starttls()
-        server.login(_from, PASSWORD)
-        print "Email sent successful"
+        server.login(email['user'], email['password'])
+        print "Email login successful"
     except Exception as e:
-        print "Email send failed. %s" % e
+        print "Email login failed. %s" % e
         return
 
     message = MIMEMultipart('alternative')
     message['Subject'] = subject
     message['To'] = ', '.join(to)
-    message['From'] = _from
+    message['From'] = email['user']
     message.attach(MIMEText(body, 'html'))
 
-    server.sendmail(_from, to, message.as_string())
+    server.sendmail(email['user'], to, message.as_string())
     server.quit()
 
 
 if __name__ == '__main__':
+    with open(CONFIG) as config_file:
+        cfg = json.load(config_file)
+
     body = ""
-    for query in queries:
-        body += "%s Listings<BR>" % query['name']
-        body += "----------------------------------<BR>"
-        cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
+    for job in cfg['job_list']:
+        for query in job['queries']:
+            body += "%s Listings<BR>" % query['name']
+            body += "----------------------------------<BR>"
+            cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
 
-        results = cl.get_results(sort_by='newest', limit=20)
-        for result in results:
-            body += ("%s:\t(%5s)\t<a href=%s>%s</a>\n<BR>" %
-                     (time_fmt(result['datetime']), result['price'], result['url'], result['name']))
-        body += '<BR><BR>'
+            results = cl.get_results(sort_by='newest', limit=20)
+            for result in results:
+                body += ("%s:\t(%5s)\t<a href=%s>%s</a>\n<BR>" %
+                    (time_fmt(result['datetime'], job), result['price'], result['url'], result['name']))
+            body += '<BR><BR>'
 
-    body += "<font color = %s>Green</font> - Under %d days old<BR>" % (GREEN, GREEN_THR)
-    body += "<font color = %s>Yellow</font> - Over %d days old<BR>" % (YELLOW, GREEN_THR)
-    body += "<font color = %s>Red</font> - Over %d days old<BR>" % (RED, YELLOW_THR)
+        body += "<font color = %s>Green</font> - Under %d days old<BR>" % (GREEN, job['green_thr'])
+        body += "<font color = %s>Yellow</font> - Over %d days old<BR>" % (YELLOW, job['green_thr'])
+        body += "<font color = %s>Red</font> - Over %d days old<BR>" % (RED, job['yellow_thr'])
 
-    subj = 'Daily apartment Listings'
+        mailit(job['subject'], body, job['sendto'], cfg['email'])
 
-    mailit(subj, body, TO, FROM)
-
+    exit(0)
