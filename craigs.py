@@ -9,12 +9,26 @@ from slackclient import SlackClient
 
 HR = 60 * 60
 DAY = HR * 24
+
 GREEN = 'green'
 YELLOW = 'cantaloupe'
 RED = 'cranberry'
+#colors = [GREEN, YELLOW, RED]
+#colorstr = {GREEN: 'good', YELLOW: 'warning', RED: 'danger'}
 
 CONFIG = "/tmp/craigs.ini"
 
+class ColorCode(object):
+    def __init__(self, code, slackstr):
+        self.code = code
+        self.slackstr = slackstr
+
+
+GREEN = ColorCode('green', 'good')
+YELLOW = ColorCode('cantaloupe', 'warning')
+RED = ColorCode('cranberry', 'danger')
+
+colors = [GREEN, YELLOW, RED]
 
 def mailit(subject, body, to, email):
     try:
@@ -50,7 +64,7 @@ def time_fmt(date_time, job, email=True):
 
     t_str = post_time.strftime('%m/%d %I:%M%p')
     if email:
-        ret = '<font color = %s>' % color + t_str + '</font>'
+        ret = '<font color = %s>' % color.code + t_str + '</font>'
     else:
         ret = t_str
 
@@ -69,67 +83,42 @@ if __name__ == '__main__':
         cfg = json.load(config_file)
     print "done reading config"
 
-
-    att = [
-        {
-#            "pretext": "Cedar Point",
-            "title": "Listing 1",
-            "title_link": "https://groove.hq/path/to/ticket/1943",
-            "text": "<http://www.foo.com|amoebastudios>",
-            "color": "good"
-        },
-        {
-            "title": "Listing 2",
-            "title_link": "https://groove.hq/path/to/ticket/1943",
-            "text": "http://amoebastudios.com",
-            "color": "warning"
-        }
-    ]
-
-#    s_body = 'Cedar Point'
-#
-#    print "sending slack"
-#    slackit(cfg['slack'], s_body, att)
-#    print "done sending slack"
-#
-#   exit(0)
-
     attachments = []
+    slackit(cfg['slack'], "Waking up to do work!", attachments)
 
     body = ""
-    s_body = ""
     for job in cfg['job_list']:
         for query in job['queries']:
             body += "%s Listings<BR>" % query['name']
             body += "----------------------------------<BR>"
-            attachments.append(dict(pretext="\n*_%s _Listings_*" % query['name'], text="",
-                                    mrkdwn_in=["pretext"]))
-            text = {}
-            text[GREEN] = ""
-            text[YELLOW] = ""
-            text[RED] = ""
-#            text = dict(GREEN="", YELLOW="", RED="")
+            attachments.append(dict(pretext="\n*_%s Listings_*" % query['name'], text="",
+                                    mrkdwn_in=["pretext", "text", "fields"]))
+            text = {GREEN.code: "", YELLOW.code: "", RED.code: ""}
 
             cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
             results = cl.get_results(sort_by='newest', limit=5)
             for result in results:
+                time_str, color = (time_fmt(result['datetime'], job))
+                print(time_str)
                 body += ("%s:\t(%5s)\t<a href=%s>%s</a>\n<BR>" %
-                         (time_fmt(result['datetime'], job), result['price'], result['url'], result['name']))
+                         (time_str, result['price'], result['url'], result['name']))
 
                 time_str, color = time_fmt(result['datetime'], job, False)
-                text[color] += ("%s: (%5s) <%s|%s>\n" %
-                                (time_str, result['price'], result['url'], result['name']))
+                text[color.code] += ("%s: (%5s) <%s|%s>\n" %
+                                     (time_str, result['price'], result['url'], result['name']))
             body += '<BR><BR>'
-            attachments.append(dict(color="good", text=text[GREEN]))
-            attachments.append(dict(color="warning", text=text[YELLOW]))
-            attachments.append(dict(color="danger", text=text[RED]))
+
+            for color in colors:
+                if len(text[color.code]):
+                    attachments.append(dict(color=color.slackstr, text='```' + text[color.code] + '```',
+                                            mrkdwn_in=["pretext", "text", "fields"]))
 
         body += "<font color = %s>Green</font> - Under %d days old<BR>" % (GREEN, job['green_thr'])
         body += "<font color = %s>Yellow</font> - Over %d days old<BR>" % (YELLOW, job['green_thr'])
         body += "<font color = %s>Red</font> - Over %d days old<BR>" % (RED, job['yellow_thr'])
 
 #        mailit(job['subject'], body, job['sendto'], cfg['email'])
-        slackit(cfg['slack'], "", attachments)
+#        slackit(cfg['slack'], "", attachments)
 
     print "done"
     exit(0)
