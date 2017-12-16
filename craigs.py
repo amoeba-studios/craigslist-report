@@ -13,26 +13,23 @@ DAY = HR * 24
 GREEN = 'green'
 YELLOW = 'cantaloupe'
 RED = 'cranberry'
-#colors = [GREEN, YELLOW, RED]
-#colorstr = {GREEN: 'good', YELLOW: 'warning', RED: 'danger'}
 
 CONFIG = "/tmp/craigs.ini"
+
 
 class ColorCode(object):
     def __init__(self, code, slackstr):
         self.code = code
         self.slackstr = slackstr
 
-
 GREEN = ColorCode('green', 'good')
 YELLOW = ColorCode('cantaloupe', 'warning')
 RED = ColorCode('cranberry', 'danger')
-
 colors = [GREEN, YELLOW, RED]
+
 
 def mailit(subject, body, to, email):
     try:
-        print email
         server = smtplib.SMTP(email['server'], int(email['port']))
         server.starttls()
         server.login(email['user'], email['password'])
@@ -64,7 +61,7 @@ def time_fmt(date_time, job, email=True):
 
     t_str = post_time.strftime('%m/%d %I:%M%p')
     if email:
-        ret = '<font color = %s>' % color.code + t_str + '</font>'
+        ret = '<font color=%s>' % color.code + t_str + '</font>'
     else:
         ret = t_str
 
@@ -73,6 +70,8 @@ def time_fmt(date_time, job, email=True):
 
 def slackit(slack, msg, att):
     sc = SlackClient(slack['token'])
+    sc.api_call("chat.postMessage", channel=slack['channel'], text='Waking up to do work!', username='craigbot',
+                icon_emoji=':robot_face:')
     sc.api_call("chat.postMessage", channel=slack['channel'], text=msg, username='craigbot',
                 icon_emoji=':robot_face:', attachments=json.dumps(att))
 
@@ -84,13 +83,12 @@ if __name__ == '__main__':
     print "done reading config"
 
     attachments = []
-    slackit(cfg['slack'], "Waking up to do work!", attachments)
 
     body = ""
     for job in cfg['job_list']:
         for query in job['queries']:
-            body += "%s Listings<BR>" % query['name']
-            body += "----------------------------------<BR>"
+            body += "<B>%s Listings<B><BR>" % query['name']
+            body += "-------------------------<BR>"
             attachments.append(dict(pretext="\n*_%s Listings_*" % query['name'], text="",
                                     mrkdwn_in=["pretext", "text", "fields"]))
             text = {GREEN.code: "", YELLOW.code: "", RED.code: ""}
@@ -99,7 +97,6 @@ if __name__ == '__main__':
             results = cl.get_results(sort_by='newest', limit=5)
             for result in results:
                 time_str, color = (time_fmt(result['datetime'], job))
-                print(time_str)
                 body += ("%s:\t(%5s)\t<a href=%s>%s</a>\n<BR>" %
                          (time_str, result['price'], result['url'], result['name']))
 
@@ -113,12 +110,12 @@ if __name__ == '__main__':
                     attachments.append(dict(color=color.slackstr, text='```' + text[color.code] + '```',
                                             mrkdwn_in=["pretext", "text", "fields"]))
 
-        body += "<font color = %s>Green</font> - Under %d days old<BR>" % (GREEN, job['green_thr'])
-        body += "<font color = %s>Yellow</font> - Over %d days old<BR>" % (YELLOW, job['green_thr'])
-        body += "<font color = %s>Red</font> - Over %d days old<BR>" % (RED, job['yellow_thr'])
+        body += "<font color = %s>Green</font> - Under %d days old<BR>" % (GREEN.code, job['green_thr'])
+        body += "<font color = %s>Yellow</font> - Over %d days old<BR>" % (YELLOW.code, job['green_thr'])
+        body += "<font color = %s>Red</font> - Over %d days old<BR>" % (RED.code, job['yellow_thr'])
 
-#        mailit(job['subject'], body, job['sendto'], cfg['email'])
-#        slackit(cfg['slack'], "", attachments)
+        mailit(job['subject'], body, job['sendto'], cfg['email'])
+        slackit(cfg['slack'], "", attachments)
 
     print "done"
     exit(0)
