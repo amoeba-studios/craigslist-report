@@ -86,8 +86,8 @@ if __name__ == '__main__':
 
     attachments = []
 
-    body = ""
     for job in cfg['job_list']:
+        body = ""
         for query in job['queries']:
             body += "<B>%s Listings<B><BR>" % query['name']
             body += "-------------------------<BR>"
