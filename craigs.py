@@ -16,7 +16,7 @@ GREEN = 'green'
 YELLOW = 'cantaloupe'
 RED = 'cranberry'
 
-CONFIG = "/tmp/craigs.ini"
+CONFIG = "craigs.ini"
 
 
 class ColorCode(object):
