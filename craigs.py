@@ -2,6 +2,7 @@
 
 import smtplib
 import json
+import logging
 
 from craigslist import CraigslistHousing
 from email.mime.multipart import MIMEMultipart
@@ -44,7 +45,7 @@ def mailit(subject, body, to, email):
     message['Subject'] = subject
     message['To'] = ', '.join(to)
     message['From'] = email['user']
-    message.attach(MIMEText(body, 'html'))
+    message.attach(MIMEText(body.encode('utf-8'), 'html'))
 
     server.sendmail(email['user'], to, message.as_string())
     server.quit()
@@ -84,6 +85,8 @@ if __name__ == '__main__':
         cfg = json.load(config_file)
     print "done reading config"
 
+    exit
+
     attachments = []
 
     for job in cfg['job_list']:
@@ -95,7 +98,8 @@ if __name__ == '__main__':
                                     mrkdwn_in=["pretext", "text", "fields"]))
             text = {GREEN.code: "", YELLOW.code: "", RED.code: ""}
 
-            cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'])
+            cl = CraigslistHousing(site=query['site'], category=query['category'], filters=query['filters'], log_level=logging.DEBUG)
+
             results = cl.get_results(sort_by='newest', limit=5)
             for result in results:
                 time_str, color = (time_fmt(result['datetime'], job))
